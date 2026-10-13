@@ -130,6 +130,8 @@ export interface ThreadFeedMessage {
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly runId: RunId | null;
   readonly streaming: boolean;
+  /** The user's thumbs up/down on this assistant reply, shown read-only. */
+  readonly reaction?: { readonly kind: "up" | "down"; readonly note?: string | undefined };
   readonly inputIntent?: OrchestrationV2UserMessageInputIntent;
   readonly createdBy?: OrchestrationV2Actor;
   readonly creationSource?: OrchestrationV2CreationSource;
@@ -1830,6 +1832,9 @@ export function buildThreadFeed(
           attachments: item.attachments ?? [],
           runId: item.runId,
           streaming: item.type === "assistant_message" && item.streaming,
+          ...(item.type === "assistant_message" && item.reaction
+            ? { reaction: { kind: item.reaction.kind, note: item.reaction.note } }
+            : {}),
           ...(item.type === "user_message"
             ? {
                 inputIntent: item.inputIntent,

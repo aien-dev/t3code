@@ -30,6 +30,7 @@ import {
   type ServerProvider,
   type ServerProviderSkill,
   type RunId,
+  type TurnItemId,
   ThreadId,
   type ToolActivityIcon,
 } from "@t3tools/contracts";
@@ -151,6 +152,8 @@ import {
   XIcon,
   ZapIcon,
   RotateCcwIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
 } from "lucide-react";
 import { ChevronDown, ChevronRight, Link as LinkIconNode } from "lucide";
 import type {
@@ -235,6 +238,7 @@ import { useThreadFindNavigation } from "./useThreadFindNavigation";
 import { readThreadFindPosition } from "./threadFindPosition";
 import type { ThreadFindPositionReader } from "./threadFind";
 import { TerminalContextInlineChip } from "./TerminalContextInlineChip";
+import { Input } from "../ui/input";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger, TooltipScrollDismissArea } from "../ui/tooltip";
@@ -346,6 +350,11 @@ interface TimelineRowSharedState {
   onForkFromRun: (input: {
     readonly sourceThreadId: ThreadId;
     readonly runId: RunId;
+  }) => Promise<void>;
+  /** Sets the thumb on a reply, or clears it with `reaction: null`. */
+  onReactToMessage: (input: {
+    readonly itemId: TurnItemId;
+    readonly reaction: { readonly kind: "up" | "down"; readonly note?: string } | null;
   }) => Promise<void>;
   onRollbackCheckpoint: (input: {
     readonly checkpointId: string;
@@ -494,6 +503,7 @@ interface MessagesTimelineProps {
     readonly sourceThreadId: ThreadId;
     readonly runId: RunId;
   }) => Promise<void>;
+  onReactToMessage: TimelineRowSharedState["onReactToMessage"];
   onRollbackCheckpoint: (input: {
     readonly checkpointId: string;
     readonly scopeId: string;
@@ -603,6 +613,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
   onOpenThread,
   parentThreadLink = null,
   onForkFromRun,
+  onReactToMessage,
   onRollbackCheckpoint,
   supportsConversationRollback,
   onRevertToTurnCount,
@@ -1375,6 +1386,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
       onOpenTurnDiff,
       onOpenThread,
       onForkFromRun,
+      onReactToMessage,
       onRollbackCheckpoint,
       onToggleTurnFold,
       onToggleAttemptFold,
@@ -1413,6 +1425,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
       onOpenTurnDiff,
       onOpenThread,
       onForkFromRun,
+      onReactToMessage,
       onRollbackCheckpoint,
       onToggleTurnFold,
       onToggleAttemptFold,
@@ -2945,6 +2958,139 @@ function AssistantMetaTimelineRow({
   );
 }
 
+/** Fades the toolbar in on hover or focus; the lit thumb opts out so a reaction stays visible. */
+const ASSISTANT_META_HOVER_REVEAL =
+  "opacity-0 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover/assistant:opacity-100";
+
+type AssistantMessageItem = Extract<OrchestrationV2TurnItem, { type: "assistant_message" }>;
+
+/**
+ * Thumbs up/down on a finished reply. The next message the user sends carries the reaction to
+ * the agent. Thumbs-down asks for an optional note first; clicking the lit thumb clears it.
+ */
+function MessageReactionButtons({
+  item,
+  gateInactive,
+}: {
+  readonly item: AssistantMessageItem;
+  /** Hide the unlit thumb until the toolbar is hovered, so only a lit one stays on screen. */
+  readonly gateInactive: boolean;
+}) {
+  const ctx = use(TimelineRowCtx);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const reaction = item.reaction;
+  const upActive = reaction?.kind === "up";
+  const downActive = reaction?.kind === "down";
+  const inactiveGate = (active: boolean) =>
+    gateInactive && !active
+      ? cn(ASSISTANT_META_HOVER_REVEAL, "transition-opacity duration-200")
+      : "";
+
+  const submitNote = () => {
+    const trimmed = note.trim();
+    setNoteOpen(false);
+    void ctx.onReactToMessage({
+      itemId: item.id,
+      reaction: { kind: "down", ...(trimmed.length > 0 ? { note: trimmed } : {}) },
+    });
+  };
+
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger render={<span className={cn("flex", inactiveGate(upActive))} />}>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            aria-label="Good response"
+            aria-pressed={upActive}
+            data-pressed={upActive ? "" : undefined}
+            onClick={() =>
+              void ctx.onReactToMessage({
+                itemId: item.id,
+                reaction: upActive ? null : { kind: "up" },
+              })
+            }
+          >
+            <ThumbsUpIcon className={cn("size-3", upActive && "fill-current")} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipPopup side="top">{upActive ? "Remove thumbs up" : "Good response"}</TooltipPopup>
+      </Tooltip>
+      <Popover
+        open={noteOpen}
+        onOpenChange={(next) => {
+          if (!next) {
+            setNoteOpen(false);
+            return;
+          }
+          if (downActive) {
+            void ctx.onReactToMessage({ itemId: item.id, reaction: null });
+            return;
+          }
+          setNote("");
+          setNoteOpen(true);
+        }}
+      >
+        <Tooltip>
+          <TooltipTrigger render={<span className={cn("flex", inactiveGate(downActive))} />}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Bad response"
+                  aria-pressed={downActive}
+                  data-pressed={downActive ? "" : undefined}
+                />
+              }
+            >
+              <ThumbsDownIcon className={cn("size-3", downActive && "fill-current")} />
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipPopup side="top" className="max-w-72 whitespace-normal wrap-anywhere">
+            {downActive
+              ? reaction.note
+                ? `Remove thumbs down: ${reaction.note}`
+                : "Remove thumbs down"
+              : "Bad response"}
+          </TooltipPopup>
+        </Tooltip>
+        <PopoverPopup
+          side="top"
+          width="sm"
+          padding="compact"
+          aria-label="Tell the agent what was wrong"
+        >
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitNote();
+            }}
+          >
+            <Input
+              autoFocus
+              size="compact"
+              value={note}
+              maxLength={2000}
+              placeholder="What was wrong? (optional)"
+              aria-label="What was wrong with this response"
+              onChange={(event) => setNote(event.target.value)}
+            />
+            <Button type="submit" size="xs">
+              Send
+            </Button>
+          </form>
+        </PopoverPopup>
+      </Popover>
+    </>
+  );
+}
+
 function AssistantMessageMeta({
   className,
   projectedItem,
@@ -2961,33 +3107,55 @@ function AssistantMessageMeta({
   alwaysVisible?: boolean;
 }) {
   const ctx = use(TimelineRowCtx);
+  const reactableItem =
+    projectedItem?.item.type === "assistant_message" &&
+    projectedItem.item.status === "completed" &&
+    !projectedItem.item.streaming &&
+    !message.streaming
+      ? projectedItem.item
+      : null;
+  // A lit thumb must stay on screen, so the hover fade moves from the toolbar to its other parts.
+  const hasReaction = reactableItem?.reaction !== undefined;
+  const hoverReveal = cn(ASSISTANT_META_HOVER_REVEAL, "transition-opacity duration-200");
 
   return (
     <div
       className={cn(
         "flex items-center gap-2 text-xs tabular-nums transition-opacity duration-200",
-        alwaysVisible
-          ? "opacity-100"
-          : "opacity-0 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover/assistant:opacity-100",
+        alwaysVisible || hasReaction ? "opacity-100" : ASSISTANT_META_HOVER_REVEAL,
         className,
       )}
     >
-      {projectedItem && projectedItem.item.status !== "completed" ? (
-        <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
-          {projectedItem.item.status}
-        </span>
-      ) : null}
-      <AssistantCopyButton
-        message={message}
-        showCopyButton={showCopyButton}
-        streaming={copyStreaming}
-      />
-      {projectedItem?.item.type === "assistant_message" ? (
-        <AssistantForkButton projectedItem={projectedItem} />
+      <div className={cn("flex items-center gap-2", hasReaction && !alwaysVisible && hoverReveal)}>
+        {projectedItem && projectedItem.item.status !== "completed" ? (
+          <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
+            {projectedItem.item.status}
+          </span>
+        ) : null}
+        <AssistantCopyButton
+          message={message}
+          showCopyButton={showCopyButton}
+          streaming={copyStreaming}
+        />
+        {projectedItem?.item.type === "assistant_message" ? (
+          <AssistantForkButton projectedItem={projectedItem} />
+        ) : null}
+      </div>
+      {reactableItem ? (
+        <MessageReactionButtons item={reactableItem} gateInactive={hasReaction && !alwaysVisible} />
       ) : null}
       {!message.streaming && (
         <Tooltip>
-          <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
+          <TooltipTrigger
+            render={
+              <p
+                className={cn(
+                  "text-muted-foreground text-xs tabular-nums",
+                  hasReaction && !alwaysVisible && hoverReveal,
+                )}
+              />
+            }
+          >
             {formatDayAwareTimestamp(message.updatedAt, ctx.timestampFormat)}
           </TooltipTrigger>
           <TooltipPopup>
@@ -4595,6 +4763,23 @@ const userMessageContextPresentationRegistry = createContextPresentationRegistry
       render: (record, context) =>
         record.kind === "thread" ? (
           <ThreadContextChip record={record} copyMarkdown={context.copyMarkdown} />
+        ) : (
+          <UnavailableUserMessageContextChip {...context} />
+        ),
+    },
+    {
+      kind: "message-reaction",
+      canRender: (record) => record.kind === "message-reaction",
+      render: (record, context) =>
+        record.kind === "message-reaction" ? (
+          <UserMessageContextChip
+            icon={record.reaction === "up" ? <ThumbsUpIcon /> : <ThumbsDownIcon />}
+            label={record.label || "Reaction"}
+            kindLabel="Reaction"
+            tooltip={record.note ?? record.excerpt}
+            copyMarkdown={context.copyMarkdown}
+            kind="neutral"
+          />
         ) : (
           <UnavailableUserMessageContextChip {...context} />
         ),

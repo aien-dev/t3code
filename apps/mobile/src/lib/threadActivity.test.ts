@@ -242,6 +242,24 @@ describe("buildThreadFeed", () => {
     expect(buildThreadFeed([projected(reply, 0)])[0]?.type).toBe("message");
   });
 
+  it("carries an assistant reaction onto the message row and leaves others undefined", () => {
+    const reacted = {
+      ...assistantMessage(),
+      reaction: {
+        kind: "down" as const,
+        note: "Missed the point",
+        reactedAt: DateTime.makeUnsafe("2026-06-20T00:00:04.000Z"),
+      },
+    };
+    const reactedRow = buildThreadFeed([projected(reacted, 0)])[0];
+    expect(reactedRow).toMatchObject({
+      type: "message",
+      message: { reaction: { kind: "down", note: "Missed the point" } },
+    });
+    const plainRow = buildThreadFeed([projected(assistantMessage(), 0)])[0];
+    expect(plainRow?.type === "message" && plainRow.message.reaction).toBeUndefined();
+  });
+
   it("does not create a work group for a message and checkpoint", () => {
     const checkpoint: OrchestrationV2TurnItem = {
       ...base("checkpoint", "2026-06-20T00:00:04.000Z", 3),

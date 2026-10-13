@@ -1395,6 +1395,24 @@ export const OrchestrationV2ProviderThreadDisposition = Schema.Literals(["reusab
 export type OrchestrationV2ProviderThreadDisposition =
   typeof OrchestrationV2ProviderThreadDisposition.Type;
 
+/** The user's verdict on one assistant reply. The next user message carries it to the agent. */
+export const OrchestrationV2MessageReactionKind = Schema.Literals(["up", "down"]);
+export type OrchestrationV2MessageReactionKind = typeof OrchestrationV2MessageReactionKind.Type;
+export const OrchestrationV2MessageReactionInput = Schema.Struct({
+  kind: OrchestrationV2MessageReactionKind,
+  note: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(2000))),
+});
+export type OrchestrationV2MessageReactionInput = typeof OrchestrationV2MessageReactionInput.Type;
+export const OrchestrationV2MessageReaction = Schema.Struct({
+  ...OrchestrationV2MessageReactionInput.fields,
+  reactedAt: Schema.DateTimeUtc,
+});
+export type OrchestrationV2MessageReaction = typeof OrchestrationV2MessageReaction.Type;
+const OrchestrationV2MessageReactionJson = Schema.Struct({
+  ...OrchestrationV2MessageReactionInput.fields,
+  reactedAt: Schema.DateTimeUtcFromString,
+});
+
 export const OrchestrationV2UserMessageInputIntent = Schema.Literals([
   "turn_start",
   "queued_turn",
@@ -1485,6 +1503,7 @@ export const OrchestrationV2TurnItem = Schema.Union([
     text: Schema.String,
     attachments: Schema.optional(Schema.Array(ChatAttachment)),
     streaming: Schema.Boolean,
+    reaction: Schema.optional(OrchestrationV2MessageReaction),
   }),
   Schema.Struct({
     ...OrchestrationV2TurnItemBaseFields,
@@ -2264,6 +2283,7 @@ export const OrchestrationV2TurnItemJson = Schema.Union([
     text: Schema.String,
     attachments: Schema.optional(Schema.Array(ChatAttachment)),
     streaming: Schema.Boolean,
+    reaction: Schema.optional(OrchestrationV2MessageReactionJson),
   }),
   Schema.Struct({
     ...OrchestrationV2TurnItemJsonBaseFields,
@@ -3070,6 +3090,14 @@ export const OrchestrationV2Command = Schema.Union([
     commandId: CommandId,
     threadId: ThreadId,
     requestId: RuntimeRequestId,
+  }),
+  /** Sets or clears (null) the user's reaction on one finished assistant reply. */
+  Schema.Struct({
+    type: Schema.Literal("message.react"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    itemId: TurnItemId,
+    reaction: Schema.NullOr(OrchestrationV2MessageReactionInput),
   }),
   Schema.Struct({
     type: Schema.Literal("checkpoint.rollback"),

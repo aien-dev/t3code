@@ -26,6 +26,8 @@ import {
   type ThreadId,
   type ThreadEnvMode,
   type UploadChatAttachment,
+  type OrchestrationV2MessageReactionInput,
+  TurnItemId,
 } from "@t3tools/contracts";
 import { modelSelectionCommandType } from "@t3tools/shared/model";
 import { derivePendingBackgroundWork } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
@@ -204,6 +206,12 @@ export interface RespondToThreadUserInputInput extends ThreadCommandInput {
 
 export interface DismissThreadUserInputInput extends ThreadCommandInput {
   readonly requestId: RuntimeRequestId;
+}
+
+export interface ReactToThreadMessageInput extends ThreadCommandInput {
+  readonly itemId: TurnItemId;
+  /** null clears the reaction. */
+  readonly reaction: OrchestrationV2MessageReactionInput | null;
 }
 
 export interface RevertThreadCheckpointInput extends ThreadCommandInput {
@@ -882,6 +890,18 @@ export const dismissThreadUserInput = Effect.fn("EnvironmentCommands.dismissThre
       commandId: yield* allocateCommandId(input),
       threadId: input.threadId,
       requestId: input.requestId,
+    });
+  },
+);
+
+export const reactToThreadMessage = Effect.fn("EnvironmentCommands.reactToThreadMessage")(
+  function* (input: ReactToThreadMessageInput) {
+    return yield* dispatch({
+      type: "message.react",
+      commandId: yield* allocateCommandId(input),
+      threadId: input.threadId,
+      itemId: input.itemId,
+      reaction: input.reaction,
     });
   },
 );

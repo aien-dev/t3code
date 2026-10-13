@@ -10,6 +10,7 @@ import type {
   ImageContextRecord,
   KnownComposerContextRecord,
   MessageId,
+  MessageReactionContextRecord,
   OrchestrationMessageContext,
   PreviewAnnotationContextRecord,
   PreviewAnnotationPayload,
@@ -320,6 +321,8 @@ export function buildMessageContext(input: {
   reviewComments: ReadonlyArray<ReviewCommentContext>;
   previewAnnotations: ReadonlyArray<PreviewAnnotationPayload>;
   threadContexts?: ReadonlyArray<ThreadContextRecord>;
+  /** Thumbs given since the last user message; see `collectUnsentMessageReactions`. */
+  messageReactions?: ReadonlyArray<MessageReactionContextRecord>;
   attachments?: ReadonlyArray<BoundComposerAttachment>;
 }): OrchestrationMessageContext | undefined {
   // An annotation's screenshot travels as the image attachment that reuses its id.
@@ -338,6 +341,7 @@ export function buildMessageContext(input: {
       }),
     ),
     ...(input.attachments ?? []).map(attachmentContextRecord),
+    ...(input.messageReactions ?? []),
   ];
   return records.length === 0 ? undefined : { version: 1, records };
 }

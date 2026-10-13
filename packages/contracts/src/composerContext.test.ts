@@ -120,6 +120,15 @@ const knownRecords: Record<(typeof COMPOSER_CONTEXT_KINDS)[number], Record<strin
     threadId: "thread-1",
     title: "Fix login flow",
   },
+  "message-reaction": {
+    ...base,
+    kind: "message-reaction",
+    label: "Thumbs down",
+    itemId: "item-1",
+    reaction: "down",
+    note: "Skipped the migration step",
+    excerpt: "I updated the config and",
+  },
 };
 
 describe("ComposerContextRecord", () => {
@@ -163,6 +172,18 @@ describe("ComposerContextRecord", () => {
         ],
       }).records,
     ).toEqual([{ ...knownRecords.skill, contextId: "ctx_skill" }]);
+  });
+
+  it("bounds message-reaction fields and rejects bad reactions", () => {
+    const reaction = knownRecords["message-reaction"];
+    const { note: _note, ...withoutNote } = reaction;
+    expect(Option.isSome(decodeRecord(withoutNote))).toBe(true);
+    expect(Option.isSome(decodeRecord({ ...reaction, note: "x".repeat(2000) }))).toBe(true);
+    expect(Option.isNone(decodeRecord({ ...reaction, note: "x".repeat(2001) }))).toBe(true);
+    expect(Option.isNone(decodeRecord({ ...reaction, note: "   " }))).toBe(true);
+    expect(Option.isNone(decodeRecord({ ...reaction, excerpt: "x".repeat(201) }))).toBe(true);
+    expect(Option.isNone(decodeRecord({ ...reaction, reaction: "meh" }))).toBe(true);
+    expect(Option.isNone(decodeRecord({ ...reaction, itemId: undefined }))).toBe(true);
   });
 
   it("rejects bad ids and versions", () => {

@@ -1,6 +1,9 @@
 import type { ComposerContextRecord, ElementContextDetails } from "@t3tools/contracts";
 
-import { collectComposerContextReferences } from "./composerContextReferences.ts";
+import {
+  collectComposerContextReferences,
+  formatMessageReactionFeedback,
+} from "./composerContextReferences.ts";
 
 /**
  * Serializes a canonical message (inline reference links plus records) into the pre-inline-context
@@ -45,6 +48,7 @@ export function serializeLegacyContextMessage(input: {
     ...input.records
       .filter((record) => record.kind === "review-comment" && !used.has(record.contextId))
       .map(renderReviewComment),
+    formatMessageReactionFeedback(input.records),
   ].filter((block) => block.length > 0);
 
   // Review comments already inlined their payload above; anything else unreferenced still ships

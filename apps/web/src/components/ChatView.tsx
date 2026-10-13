@@ -75,6 +75,7 @@ import {
   type ThreadId,
   type ThreadLinkedPullRequest,
   type RunId,
+  type TurnItemId,
   type RuntimeRequestId,
   type KeybindingCommand,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
@@ -448,6 +449,7 @@ import { MessagesTimeline, type MessagesTimelineHistoryControls } from "./chat/M
 import { ProviderSubagentBar } from "./chat/ProviderSubagentBar";
 import { getTriggerDisplayModelName } from "./chat/providerIconUtils";
 import { resolveTimelineIsAtEnd, worktreeSetupAgentStarted } from "./chat/MessagesTimeline.logic";
+import { collectUnsentMessageReactions } from "./chat/messageReactions.logic";
 import {
   overlayComposerIsResting,
   resolveComposerTimelineInset,
@@ -1656,6 +1658,9 @@ export default function ChatView(props: ChatViewProps) {
     reportFailure: false,
   });
   const dismissThreadUserInput = useAtomCommand(threadEnvironment.dismissUserInput, {
+    reportFailure: false,
+  });
+  const reactToThreadMessage = useAtomCommand(threadEnvironment.reactToMessage, {
     reportFailure: false,
   });
   const revertThreadCheckpoint = useOrchestrationCommand(threadEnvironment.revertCheckpoint, {
@@ -8673,6 +8678,33 @@ export default function ChatView(props: ChatViewProps) {
     ],
   );
 
+  const onReactToMessage = useCallback(
+    async (input: {
+      readonly itemId: TurnItemId;
+      readonly reaction: { readonly kind: "up" | "down"; readonly note?: string } | null;
+    }) => {
+      if (!activeThreadId || activeEnvironmentUnavailable) return;
+      const result = await reactToThreadMessage({
+        environmentId,
+        input: { threadId: activeThreadId, ...input },
+      });
+      if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+        const error = squashAtomCommandFailure(result);
+        setThreadError(
+          activeThreadId,
+          error instanceof Error ? error.message : "Failed to save your reaction.",
+        );
+      }
+    },
+    [
+      activeEnvironmentUnavailable,
+      activeThreadId,
+      environmentId,
+      reactToThreadMessage,
+      setThreadError,
+    ],
+  );
+
   const onForkFromRun = useCallback(
     async (input: { readonly sourceThreadId: ThreadId; readonly runId: RunId }) => {
       if (!activeThread || activeEnvironmentUnavailable) return;
@@ -9321,12 +9353,20 @@ export default function ChatView(props: ChatViewProps) {
     // Records bind attachments by the id each side knows: the local id for the optimistic
     // row, the upload id (or local id on the data-URL path) on the wire; the server
     // rebinds them to the persisted id.
+    // Thumbs given since the last user message ride along once, so the agent can learn from them.
+    const unsentMessageReactions = serverProjection
+      ? collectUnsentMessageReactions({
+          messages: serverProjection.messages,
+          turnItems: serverProjection.turnItems,
+        })
+      : [];
     const buildOutgoingMessageContext = (attachmentIds: ReadonlyArray<string>) =>
       buildMessageContext({
         terminalContexts: composerTerminalContextsSnapshot,
         reviewComments: composerReviewCommentsSnapshot,
         previewAnnotations: composerPreviewAnnotationsSnapshot,
         threadContexts: composerThreadContextsSnapshot,
+        messageReactions: unsentMessageReactions,
         attachments: composerAttachmentsSnapshot.map((attachment, index) => ({
           attachment,
           attachmentId: attachmentIds[index] ?? attachment.id,
@@ -11587,6 +11627,7 @@ export default function ChatView(props: ChatViewProps) {
                 onOpenThread={onOpenRelatedThread}
                 parentThreadLink={paintOnlyDisplayedTimeline ? null : parentThreadLink}
                 onForkFromRun={paintOnlyDisplayedTimeline ? async () => {} : onForkFromRun}
+                onReactToMessage={paintOnlyDisplayedTimeline ? async () => {} : onReactToMessage}
                 onRollbackCheckpoint={onTimelineRollbackCheckpoint}
                 supportsConversationRollback={
                   !paintOnlyDisplayedTimeline && supportsConversationRollback

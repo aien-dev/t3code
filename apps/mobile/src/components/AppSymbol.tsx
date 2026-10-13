@@ -41,6 +41,8 @@ import IconCircleCheck from "@tabler/icons-react-native/IconCircleCheck";
 import IconCircleDashed from "@tabler/icons-react-native/IconCircleDashed";
 import IconCircleDot from "@tabler/icons-react-native/IconCircleDot";
 import IconCircleXFilled from "@tabler/icons-react-native/IconCircleXFilled";
+import IconThumbDown from "@tabler/icons-react-native/IconThumbDown";
+import IconThumbUp from "@tabler/icons-react-native/IconThumbUp";
 import IconTicket from "@tabler/icons-react-native/IconTicket";
 import IconClock from "@tabler/icons-react-native/IconClock";
 import IconCode from "@tabler/icons-react-native/IconCode";
@@ -178,6 +180,8 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   clock: IconClock,
   timer: IconClock,
   ticket: IconTicket,
+  "hand.thumbsup": IconThumbUp,
+  "hand.thumbsdown": IconThumbDown,
   cloud: IconCloud,
   cube: IconBox,
   "chevron.down": IconChevronDown,

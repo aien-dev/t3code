@@ -476,6 +476,7 @@ function commandThreadId(command: OrchestrationV2ServerCommand): ThreadId {
     case "queued-run.edit":
     case "runtime-request.respond":
     case "thread.user-input.dismiss":
+    case "message.react":
     case "checkpoint.rollback":
     case "checkpoint.rollback.fail":
     case "thread.background-work.settle":
@@ -7563,6 +7564,46 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       );
     });
 
+  const dispatchMessageReact = (
+    command: Extract<OrchestrationV2Command, { readonly type: "message.react" }>,
+    events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
+  ) =>
+    Effect.gen(function* () {
+      const item = yield* projectionStore
+        .getTurnItem({ threadId: command.threadId, itemId: command.itemId })
+        .pipe(
+          Effect.mapError(() => new OrchestratorProjectionError({ threadId: command.threadId })),
+        );
+      if (item === null || item.type !== "assistant_message") {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause: "This reply no longer exists.",
+        });
+      }
+      if (item.streaming || item.status !== "completed") {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause: "Wait for the reply to finish before reacting to it.",
+        });
+      }
+      const now = yield* DateTime.now;
+      const { reaction: _previous, ...unreacted } = item;
+      yield* emit(
+        events,
+        command,
+      )({
+        type: "turn-item.updated",
+        threadId: command.threadId,
+        occurredAt: now,
+        payload:
+          command.reaction === null
+            ? { ...unreacted, updatedAt: now }
+            : { ...unreacted, updatedAt: now, reaction: { ...command.reaction, reactedAt: now } },
+      });
+    });
+
   const dispatchQueuedMessagePromoteToSteer = (
     command: Extract<OrchestrationV2Command, { readonly type: "queued-message.promote-to-steer" }>,
     events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
@@ -10805,6 +10846,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         break;
       case "thread.user-input.dismiss":
         yield* dispatchThreadUserInputDismiss(command, events, effects);
+        break;
+      case "message.react":
+        yield* dispatchMessageReact(command, events);
         break;
       case "subagent.stop":
         yield* dispatchSubagentStop(command, events, effects);

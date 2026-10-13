@@ -409,6 +409,7 @@ function buildProps() {
     onOpenTurnDiff: () => {},
     onOpenThread: () => {},
     onForkFromRun: async () => {},
+    onReactToMessage: async () => {},
     onRollbackCheckpoint: () => {},
     supportsConversationRollback: false,
     onRevertToTurnCount: () => {},

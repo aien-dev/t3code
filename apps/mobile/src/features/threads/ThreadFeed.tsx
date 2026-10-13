@@ -1434,6 +1434,31 @@ function renderFeedEntry(
             <MessageAttachmentUnknown key={attachment.id} name={attachment.name} />
           );
         })}
+        {message.reaction ? (
+          <View
+            accessible
+            accessibilityLabel={`${message.reaction.kind === "up" ? "Thumbs up" : "Thumbs down"}${
+              message.reaction.note ? `: ${message.reaction.note}` : ""
+            }`}
+            className="mt-1.5 max-w-full flex-row items-center gap-1.5 self-start rounded-full border border-border bg-subtle px-2.5 py-1"
+          >
+            <SymbolView
+              name={message.reaction.kind === "up" ? "hand.thumbsup" : "hand.thumbsdown"}
+              size={12}
+              tintColor={iconSubtleColor}
+              type="monochrome"
+            />
+            {message.reaction.note ? (
+              <Text
+                className="shrink text-xs text-foreground-secondary"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {message.reaction.note}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         {showAssistantMeta ? (
           <View className="mt-1 flex-row items-center gap-1">
             <CopyTextButton

@@ -7,6 +7,7 @@ import {
   PositiveInt,
   ThreadId,
   TrimmedNonEmptyString,
+  TurnItemId,
 } from "./baseSchemas.ts";
 
 /**
@@ -28,6 +29,7 @@ export const COMPOSER_CONTEXT_KINDS = [
   "mention",
   "skill",
   "thread",
+  "message-reaction",
 ] as const;
 export type KnownComposerContextKind = (typeof COMPOSER_CONTEXT_KINDS)[number];
 
@@ -234,6 +236,23 @@ export const ThreadContextRecord = Schema.Struct({
 });
 export type ThreadContextRecord = typeof ThreadContextRecord.Type;
 
+/**
+ * The user's thumbs-up/down on one assistant reply, riding on their next message so the agent
+ * learns from it. Not referenced inline: the provider projection renders it as a trailing
+ * block. `reaction` mirrors `OrchestrationV2MessageReactionKind`, which orchestrationV2.ts owns
+ * and which cannot be imported here without a cycle.
+ */
+export const MessageReactionContextRecord = Schema.Struct({
+  ...recordBase,
+  kind: Schema.Literal("message-reaction"),
+  itemId: TurnItemId,
+  reaction: Schema.Literals(["up", "down"]),
+  note: Schema.optionalKey(TrimmedNonEmptyString.check(Schema.isMaxLength(2_000))),
+  /** Start of the reply text, so the agent can tell which reply was rated. */
+  excerpt: BoundedString(200),
+});
+export type MessageReactionContextRecord = typeof MessageReactionContextRecord.Type;
+
 const isJson = Schema.is(Schema.Json);
 
 /**
@@ -271,6 +290,7 @@ export const KnownComposerContextRecord = Schema.Union([
   MentionContextRecord,
   SkillContextRecord,
   ThreadContextRecord,
+  MessageReactionContextRecord,
 ]);
 export type KnownComposerContextRecord = typeof KnownComposerContextRecord.Type;
 

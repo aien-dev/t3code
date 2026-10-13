@@ -177,3 +177,20 @@ describe("serializeLegacyContextMessage", () => {
     expect(legacy).not.toContain("5 |");
   });
 });
+
+describe("serializeLegacyContextMessage message reactions", () => {
+  it("keeps a reaction as a trailing feedback block", () => {
+    const reaction = {
+      version: 1,
+      contextId: ComposerContextId.make("message-reaction_r1"),
+      kind: "message-reaction",
+      label: "Thumbs up",
+      itemId: "item-1",
+      reaction: "up",
+      excerpt: "Done.",
+    } as ComposerContextRecord;
+    expect(serializeLegacyContextMessage({ text: "thanks", records: [reaction] })).toBe(
+      'thanks\n\n<user_feedback>\nThe user gave a thumbs-up to your earlier reply that began "Done.".\n</user_feedback>',
+    );
+  });
+});

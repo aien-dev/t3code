@@ -48,6 +48,11 @@ const DEFINITIONS = [
     kind: "thread",
     capabilities: { details: "tooltip", expanded: "none", defaultDraftView: "compact" },
   },
+  {
+    // Rides on the next message without a chip the user can insert; kept minimal.
+    kind: "message-reaction",
+    capabilities: { details: "tooltip", expanded: "none", defaultDraftView: "compact" },
+  },
 ] as const satisfies ReadonlyArray<ContextPresentationDefinition>;
 
 function buildDefinitionRegistry(
