@@ -1,3 +1,7 @@
+> **AIEN fork.** This is the AIEN copy of [pingdotgg/t3code](https://github.com/pingdotgg/t3code). AIEN keeps it to prepare contributions to T3 Code. Our work is on the branch `feat/message-reactions` (one commit, 2026-10-13: thumbs up or down on agent replies); it has not been offered upstream yet. The `main` branch is upstream's code plus one automated dependency update, and is behind upstream; the other branches are copies of upstream branches. Status (2026-10-18): no AIEN change since 2026-10-14. AIEN itself starts at [Aienix](https://github.com/aien-dev/aienix), the core tree of AIEN.
+>
+> Everything below this note is the upstream README, unchanged.
+
 # T3 Code
 
 T3 Code is an "agent harness control surface". It enables control of the agents on your machine with a best-in-class mobile app ([iOS](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824), [Android](https://play.google.com/store/apps/details?id=com.t3tools.t3code)), [web app](https://app.t3.codes) and [Electron-based desktop app](https://t3.codes).
